@@ -1,16 +1,16 @@
- #include <WiFiManager.h>
+#include <WiFiManager.h>
 //#include <HTTPClient.h>
-#include <WiFiClient.h>
+//#include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
-#include <ESP8266WiFi.h>
+#include <WiFiClientSecure.h>
 
-WiFiClient wifiClient;
+WiFiClientSecure wifiClient;
 
 int timeout = 30;
 String deviceID;
 WiFiManager manager;
-WiFiManagerParameter parameter("parameterId", "Device ID", "qwerty1", 6);
+WiFiManagerParameter parameter("parameterId", "Device ID", "", 6);
 
 //Your Domain name with URL path or IP address with path
 const char* url = "https://com-4-rt.vercel.app/api/log_data.json";
@@ -23,7 +23,7 @@ String humdString = String(humd_random,0);
 
 void postHTTP(String(url), String(tempReading), String(humdReading), String(deviceName));
 
-int x = 1;
+int x = 0;
 
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
@@ -98,6 +98,8 @@ float aboveTempC = 30;
 void setup() {
   Serial.begin(115200);
 
+  wifiClient.setInsecure(); //the magic line, use with caution
+
   wifiManagerSetUp();
   deviceID = parameter.getValue();
   
@@ -126,6 +128,8 @@ void setup() {
   // Initialize device.
   dht.begin();
 
+   manager.autoConnect("COM4RT");
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,31 +139,34 @@ void loop() {
   humi = dht.readHumidity();
   tempC = dht.readTemperature();
 
+    x += 1;
   Serial.println("X:");
   Serial.println(x);
+ 
 
-// x start from 1
-  if(x==1){  //1
-    manager.autoConnect("COM4RT");
-    }
-  else if (x>1 and x<4){  //2,3
-    manager.disconnect();
-    }
-  else if (x>=4 and x<6){  //4,5
-    manager.autoConnect("COM4RT");
-    }
-  else if (x>=6 and x<8){  //6,7
-    manager.disconnect();
-    }
-  else{
-    manager.autoConnect("COM4RT");
-    }   
-      x += 1;
-
-
+//// x start from 1
+//  if(x>1 and x<4){  //2 , 3
+//    manager.disconnect();
+//    }
+//  else if (x>=4 and x<6){  //4,5
+//    manager.autoConnect("COM4RT");
+//    }
+//  else if (x==1){  //4,5
+//    manager.autoConnect("COM4RT");
+//    }
+//  else if (x>=6 and x<8){  //6,7
+//    manager.disconnect();
+//    }
+//  else{
+//    manager.disconnect();
+//    }   
+  Serial.println(manager.getConfigPortalSSID());
+  Serial.println(manager.getLastConxResult());
+  Serial.println(manager.getWiFiIsSaved());
+  Serial.println(manager.getDefaultAPName());
+  Serial.println(manager.getWiFiSSID(true));
   postHTTP(url, tempString,humdString, deviceID); 
-  wifiConnected();
-
+  
 
 
   buttonState = digitalRead(buttonModePin);
@@ -169,7 +176,7 @@ void loop() {
     digitalWrite(buzzer, LOW);
     delay(500);
     digitalWrite(buzzer, LOW);
-    // Serial.println("Off");
+    Serial.println("Off");
     //    sound();
   } 
   else {
@@ -179,7 +186,7 @@ void loop() {
     delay(500);
     digitalWrite(buzzer, LOW);
     RGB_color(0,0,0);
-    // Serial.println("On");
+    Serial.println("On");
   }
 
   if(humi > belowHumi && humi < aboveHumi){
@@ -222,8 +229,8 @@ void loop() {
   display.clearDisplay();
   oledDisplay(1,0,0,humi,"%");
   oledDisplay(1,30,0,tempC,"%");
-  // Serial.println(humi);
-  // Serial.println(tempC);
+  Serial.println(humi);
+  Serial.println(tempC);
 
   display.display(); 
 }
@@ -310,6 +317,7 @@ void postHTTP(String(url), String(tempReading), String(humdReading), String(devi
   unsigned long delay_datasent = 10000;  // 10sec
   HTTPClient http;
   String response;
+
   http.begin(wifiClient,url);
   StaticJsonDocument<200> buff;
   String jsonParams;
@@ -325,17 +333,4 @@ void postHTTP(String(url), String(tempReading), String(humdReading), String(devi
   response = http.getString();
   Serial.println(response);
   http.end();
-}
-
-void wifiConnected(){
-    Serial.print("Connecting");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-
-  Serial.print("Connected, IP address: ");
-  Serial.println(WiFi.localIP());
 }
